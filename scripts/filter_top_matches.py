@@ -23,7 +23,7 @@ def get_top_matches(similarity_data, top_n=3):
 
     for row in similarity_data:
         # Skip unrelated domains: low Jaccard AND high Levenshtein
-        if row['jac'] < 0.1 and row['lev'] > 6:
+        if row['jac'] < 1 and row['lev'] > 6:
             continue
         phish_to_matches[row['phishing']].append(row)
 

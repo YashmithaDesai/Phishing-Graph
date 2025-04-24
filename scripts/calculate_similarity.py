@@ -31,7 +31,7 @@ def write_to_csv(results, output_path):
         writer.writerows(results)
 
 if __name__ == '__main__':
-    phishing = load_domains('/Users/shreya/Desktop/Phishing-Graph/Phishing-Graph/data/phishing_domains.txt')
+    phishing = load_domains('data/phishing_domains.txt')
     legit = load_domains('data/legit_domains.txt')
     sim_scores = compute_similarity(phishing, legit)
     write_to_csv(sim_scores, 'data/similarity_scores.csv')
