@@ -1,0 +1,131 @@
+# app.py (Flask backend with Neo4j integration)
+import os
+import csv
+from flask import Flask, request, render_template, redirect
+from Levenshtein import distance as levenshtein_distance
+from neo4j_utils import add_phishing_match, driver, get_phishing_history, get_phishing_statistics, test_connection
+from flask import jsonify
+
+app = Flask(__name__)
+
+# Define paths
+DATA_DIR = os.path.join(os.path.dirname(__file__), '..', 'data')
+LEGIT_FILE = os.path.join(DATA_DIR, 'legit_domains.txt')
+
+# Load legit domains into memory
+with open(LEGIT_FILE, 'r', encoding='utf-8') as f:
+    legit_domains = [line.strip().lower() for line in f if line.strip()]
+
+# Similarity functions
+def jaccard_similarity(str1, str2, n=3):
+    def ngrams(s, n):
+        return set(s[i:i+n] for i in range(len(s)-n+1))
+    set1, set2 = ngrams(str1, n), ngrams(str2, n)
+    return len(set1 & set2) / len(set1 | set2) if set1 | set2 else 0
+
+def get_best_match(user_input, legit_domains, lev_thresh=5, jac_thresh=0.4):
+    best_match = None
+    best_score = float('inf')
+    best_lev = None
+    best_jac = None
+    
+    for legit in legit_domains:
+        lev = levenshtein_distance(user_input, legit)
+        jac = jaccard_similarity(user_input, legit)
+        
+        if lev <= lev_thresh or jac >= jac_thresh:
+            score = lev - jac  # prioritize smaller edit and higher overlap
+            if score < best_score:
+                best_score = score
+                best_match = legit
+                best_lev = lev
+                best_jac = jac
+    
+    return best_match, best_lev, best_jac
+
+@app.route('/')
+def home():
+    return render_template('index.html')
+
+@app.route('/check', methods=['POST'])
+def check():
+    user_input = request.form['url'].strip().lower()
+    
+    # Remove protocol and www if present for cleaner comparison
+    clean_input = user_input.replace('http://', '').replace('https://', '').replace('www.', '')
+    
+    if clean_input in legit_domains:
+        # Domain is in trusted list
+        return render_template('result.html',
+                              flagged=False,
+                              domain=clean_input,
+                              safe=True,
+                              suggestion=None)
+    
+    best_match, lev_distance, jac_score = get_best_match(clean_input, legit_domains)
+    
+    if best_match:
+        # Log the phishing attempt to Neo4j
+        try:
+            add_phishing_match(clean_input, best_match, lev_distance, jac_score)
+            print(f"Logged phishing attempt: {clean_input} -> {best_match}")
+        except Exception as e:
+            print(f"Error logging to Neo4j: {e}")
+        
+        return render_template('result.html',
+                              flagged=True,
+                              domain=clean_input,
+                              safe=False,
+                              suggestion=best_match)
+    else:
+        # No match found - could be legitimate unknown domain or suspicious
+        return render_template('result.html',
+                              flagged=False,
+                              domain=clean_input,
+                              safe=False,
+                              suggestion=None)
+
+@app.route('/analytics')
+def analytics():
+    """Show analytics dashboard with Neo4j data"""
+    try:
+        # Test connection first
+        if not test_connection():
+            return render_template('analytics.html', 
+                                 phishing_data=[], 
+                                 error="Cannot connect to Neo4j database. Please check if Neo4j is running.")
+        
+        phishing_data = get_phishing_history()
+        stats = get_phishing_statistics()
+        
+        return render_template('analytics.html', 
+                              phishing_data=phishing_data,
+                              stats=stats,
+                              error=None)
+    except Exception as e:
+        print(f"Error fetching analytics: {e}")
+        return render_template('analytics.html', 
+                              phishing_data=[], 
+                              stats={},
+                              error=f"Database error: {str(e)}")
+
+@app.route('/api/phishing-stats')
+def phishing_stats():
+    """API endpoint for phishing statistics"""
+    try:
+        if not test_connection():
+            return jsonify({"error": "Neo4j connection failed"}), 500
+            
+        stats = get_phishing_statistics()
+        return jsonify(stats)
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+# Cleanup Neo4j connection when app shuts down
+@app.teardown_appcontext
+def close_neo4j(error):
+    if driver:
+        driver.close()
+
+if __name__ == '__main__':
+    app.run(debug=True)
