@@ -3,9 +3,9 @@ from datetime import datetime
 import os
 
 # Set your Neo4j credentials here - use environment variables for security
-NEO4J_URI = os.getenv("NEO4J_URI", "bolt://localhost:7687")
+NEO4J_URI = os.getenv("NEO4J_URI", "bolt://localhost:7690")
 NEO4J_USER = os.getenv("NEO4J_USER", "neo4j")
-NEO4J_PASSWORD = os.getenv("NEO4J_PASSWORD", "your_password")
+NEO4J_PASSWORD = os.getenv("NEO4J_PASSWORD", "phish123")
 
 driver = GraphDatabase.driver(NEO4J_URI, auth=(NEO4J_USER, NEO4J_PASSWORD))
 
@@ -19,32 +19,44 @@ def test_connection():
         print(f"Neo4j connection failed: {e}")
         return False
 
-def add_phishing_match(phishing, legit, lev, jac):
-    """Add a phishing match to the Neo4j database"""
+def add_phishing_match(phishing, legit, lev, jac, ssl_info, whois_info, risk_score, reasons):
     try:
         with driver.session() as session:
-            session.write_transaction(_create_match, phishing, legit, lev, jac)
+            session.write_transaction(_create_match, phishing, legit, lev, jac, ssl_info, whois_info, risk_score, reasons)
         return True
     except Exception as e:
         print(f"Error adding phishing match to Neo4j: {e}")
         return False
 
-def _create_match(tx, phishing, legit, lev, jac):
-    """Transaction function to create phishing match"""
+def _create_match(tx, phishing, legit, lev, jac, ssl_info, whois_info, risk_score, reasons):
     tx.run("""
         MERGE (p:Phishing {domain: $phishing})
         ON CREATE SET p.first_seen = datetime(), p.count = 1
         ON MATCH SET p.count = p.count + 1, p.last_seen = datetime()
-        
+
+        SET p.ssl_issuer = $ssl_issuer,
+            p.ssl_expiry = $ssl_expiry,
+            p.whois_registrar = $whois_registrar,
+            p.whois_creation_date = $whois_creation_date,
+            p.risk_score = $risk_score,
+            p.risk_reasons = $risk_reasons
+
         MERGE (l:Legit {domain: $legit})
         ON CREATE SET l.created = datetime()
-        
+
         MERGE (p)-[r:SIMILAR_TO {
             levenshtein: $lev,
             jaccard: $jac,
             created: datetime()
         }]->(l)
-    """, phishing=phishing, legit=legit, lev=lev, jac=jac)
+    """, phishing=phishing, legit=legit, lev=lev, jac=jac,
+         ssl_issuer=ssl_info.get("issuer"),
+         ssl_expiry=ssl_info.get("expires"),
+         whois_registrar=whois_info.get("registrar"),
+         whois_creation_date=whois_info.get("creation_date"),
+         risk_score=risk_score,
+         risk_reasons=", ".join(reasons))
+
 
 def get_phishing_history(limit=50):
     """Get recent phishing attempts"""
@@ -184,3 +196,33 @@ if __name__ == "__main__":
         print(f"Current stats: {stats}")
     else:
         print("❌ Neo4j connection failed!")
+
+def add_domain_metadata(domain, ssl_data, whois_data):
+    with driver.session() as session:
+        return session.write_transaction(_add_domain_metadata, domain, ssl_data, whois_data)
+
+def _add_domain_metadata(tx, domain, ssl_data, whois_data):
+    tx.run("""
+        MERGE (d:Domain {domain: $domain})
+        SET d.ssl_issuer = $ssl_issuer,
+            d.ssl_subject = $ssl_subject,
+            d.ssl_notBefore = $ssl_notBefore,
+            d.ssl_notAfter = $ssl_notAfter,
+            d.ssl_serialNumber = $ssl_serialNumber,
+            d.whois_registrar = $whois_registrar,
+            d.whois_creation_date = $whois_creation_date,
+            d.whois_expiration_date = $whois_expiration_date,
+            d.whois_name_servers = $whois_name_servers,
+            d.whois_status = $whois_status,
+            d.last_updated = datetime()
+    """, domain=domain,
+         ssl_issuer=str(ssl_data.get('issuer')),
+         ssl_subject=str(ssl_data.get('subject')),
+         ssl_notBefore=ssl_data.get('notBefore'),
+         ssl_notAfter=ssl_data.get('notAfter'),
+         ssl_serialNumber=ssl_data.get('serialNumber'),
+         whois_registrar=whois_data.get('registrar'),
+         whois_creation_date=whois_data.get('creation_date'),
+         whois_expiration_date=whois_data.get('expiration_date'),
+         whois_name_servers=str(whois_data.get('name_servers')),
+         whois_status=str(whois_data.get('status')))

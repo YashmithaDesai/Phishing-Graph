@@ -1,8 +1,8 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>Domain Security Check - Results</title>
   <style>
     * {
@@ -206,21 +206,134 @@
         flex-direction: column;
         gap: 10px;
       }
+      .risk-high {
+        color: #f44336;
+      }
+      .risk-medium {
+        color: #ff9800;
+      }
+      .risk-low {
+        color: #4caf50;
+      }
+
+      
     }
   </style>
 </head>
 <body>
   <div class="container">
+    {% set score = risk_score | default(0) %}
+    {% if score >= 80 %}
+      {% set risk_class = 'risk-high' %}
+    {% elif score >= 50 %}
+      {% set risk_class = 'risk-medium' %}
+    {% else %}
+      {% set risk_class = 'risk-low' %}
+    {% endif %}
+
+
     {% if safe %}
       <div class="icon safe">🛡️</div>
       <div class="status-badge badge-safe">Verified Safe</div>
       <h2>The domain <span class="domain">{{ domain }}</span> is safe and trusted.</h2>
+
+      
+
+      {% if risk_score is defined %}
+      <p>
+          <strong>🔢 Risk Score:</strong>
+          <span class="risk-score {{ risk_class }}">{{ risk_score }}/100</span>
+      </p>
+      {% else %}
+        <p>No risk score available for this domain.</p>
+      {% endif %}
+
+
+      
+
+      {% if reasons %}
+        <div style="text-align:left; margin: 20px auto; background:#f9f9f9; padding: 20px; border-radius: 12px; box-shadow: 0 0 8px rgba(0,0,0,0.05);">
+          <h3 style="margin-bottom:10px;">🧠 Why this score?</h3>
+          <ul style="padding-left: 20px; color:#444;">
+            {% for reason in reasons %}
+              <li>{{ reason }}</li>
+            {% endfor %}
+          </ul>
+        </div>
+      {% endif %}
+
+      {% if ssl %}
+        <div style="text-align:left; margin-top:20px;">
+          <h3>🔐 SSL Certificate Info</h3>
+          <ul>
+            {% for k, v in ssl.items() %}
+              <li><strong>{{ k }}:</strong> {{ v }}</li>
+            {% endfor %}
+          </ul>
+        </div>
+      {% endif %}
+
+      {% if whois %}
+        <div style="text-align:left; margin-top:20px;">
+          <h3>📄 WHOIS Info</h3>
+          <ul>
+            {% for k, v in whois.items() %}
+              <li><strong>{{ k }}:</strong> {{ v }}</li>
+            {% endfor %}
+          </ul>
+        </div>
+      {% endif %}
+
       <p>This domain is found in our list of verified legitimate websites. You can proceed with confidence.</p>
-    
+
     {% elif flagged and suggestion %}
       <div class="icon warning">⚠️</div>
       <div class="status-badge badge-warning">Suspicious Domain</div>
       <h2>The domain <span class="domain">{{ domain }}</span> appears suspicious.</h2>
+
+      <!-- New risk score and details -->
+      {% if risk_score is defined %}
+      <p>
+          <strong>🔢 Risk Score:</strong>
+          <span class="risk-score {{ risk_class }}">{{ risk_score }}/100</span>
+      </p>
+      {% else %}
+        <p>No risk score available for this domain.</p>
+      {% endif %}
+
+      {% if reasons %}
+        <div style="text-align:left; margin: 20px auto; background:#f9f9f9; padding: 20px; border-radius: 12px; box-shadow: 0 0 8px rgba(0,0,0,0.05);">
+          <h3 style="margin-bottom:10px;">🧠 Why this score?</h3>
+          <ul style="padding-left: 20px; color:#444;">
+            {% for reason in reasons %}
+              <li>{{ reason }}</li>
+            {% endfor %}
+          </ul>
+        </div>
+      {% endif %}
+
+      {% if ssl %}
+        <div style="text-align:left; margin-top:20px;">
+          <h3>🔐 SSL Certificate Info</h3>
+          <ul>
+            {% for k, v in ssl.items() %}
+              <li><strong>{{ k }}:</strong> {{ v }}</li>
+            {% endfor %}
+          </ul>
+        </div>
+      {% endif %}
+
+      {% if whois %}
+        <div style="text-align:left; margin-top:20px;">
+          <h3>📄 WHOIS Info</h3>
+          <ul>
+            {% for k, v in whois.items() %}
+              <li><strong>{{ k }}:</strong> {{ v }}</li>
+            {% endfor %}
+          </ul>
+        </div>
+      {% endif %}
+
       <div class="suggestion-box">
         <p><strong>🤔 Did you mean to visit:</strong></p>
         <div class="suggestion-domain">{{ suggestion }}</div>
@@ -228,29 +341,68 @@
           🔗 Go to {{ suggestion }}
         </a>
       </div>
-    
+
     {% elif flagged and not suggestion %}
       <div class="icon danger">🚨</div>
       <div class="status-badge badge-warning">Potentially Dangerous</div>
-      <h2>The domain <span class="domain">{{ domain }}</span> may be suspicious.</h2>
-      <p>We could not find a trusted match for this domain. Please exercise caution and verify the authenticity before proceeding.</p>
-    
+      <h2>The domain <span class="domain">{{ domain }}</span> is potentially dangerous.</h2>
+
+      <!-- New risk score and details -->
+      {% if risk_score is defined %}
+      <p>
+          <strong>🔢 Risk Score:</strong>
+          <span class="risk-score {{ risk_class }}">{{ risk_score }}/100</span>
+      </p>
+      {% else %}
+        <p>No risk score available for this domain.</p>
+      {% endif %}
+
+      {% if reasons %}
+        <div style="text-align:left; margin: 20px auto; background:#f9f9f9; padding: 20px; border-radius: 12px; box-shadow: 0 0 8px rgba(0,0,0,0.05);">
+          <h3 style="margin-bottom:10px;">🧠 Why this score?</h3>
+          <ul style="padding-left: 20px; color:#444;">
+            {% for reason in reasons %}
+              <li>{{ reason }}</li>
+            {% endfor %}
+          </ul>
+        </div>
+      {% endif %}
+
+      {% if ssl %}
+        <div style="text-align:left; margin-top:20px;">
+          <h3>🔐 SSL Certificate Info</h3>
+          <ul>
+            {% for k, v in ssl.items() %}
+              <li><strong>{{ k }}:</strong> {{ v }}</li>
+            {% endfor %}
+          </ul>
+        </div>
+      {% endif %}
+
+      {% if whois %}
+        <div style="text-align:left; margin-top:20px;">
+          <h3>📄 WHOIS Info</h3>
+          <ul>
+            {% for k, v in whois.items() %}
+              <li><strong>{{ k }}:</strong> {{ v }}</li>
+            {% endfor %}
+          </ul>
+        </div>
+      {% endif %}
+
+      <p>Please exercise caution before interacting with this domain.</p>
+
     {% else %}
-      <div class="icon">🔍</div>
-      <div class="status-badge badge-info">Unknown Domain</div>
-      <h2>The domain <span class="domain">{{ domain }}</span> is not flagged.</h2>
-      <p>However, it does not appear in our known trusted sites list either. Please verify the domain independently if you're unsure.</p>
+      <div class="icon danger">❓</div>
+      <h2>We could not determine the safety of <span class="domain">{{ domain }}</span>.</h2>
+      <p>Please try again later or check the domain manually.</p>
     {% endif %}
 
     <div class="divider"></div>
-    
+
     <div class="button-group">
-      <a href="/" class="btn btn-secondary">
-        🔄 Check Another Domain
-      </a>
-      <a href="/analytics" class="btn btn-analytics">
-        📊 View Analytics
-      </a>
+      <a href="/" class="btn btn-secondary">← Back</a>
+      <a href="/analytics" class="btn btn-analytics">View Analytics</a>
     </div>
   </div>
 </body>

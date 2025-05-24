@@ -5,6 +5,9 @@ from flask import Flask, request, render_template, redirect
 from Levenshtein import distance as levenshtein_distance
 from neo4j_utils import add_phishing_match, driver, get_phishing_history, get_phishing_statistics, test_connection
 from flask import jsonify
+from utils import fetch_ssl_info, fetch_whois_info, score_domain_risk
+from neo4j_utils import add_domain_metadata  
+
 
 app = Flask(__name__)
 
@@ -12,7 +15,7 @@ app = Flask(__name__)
 DATA_DIR = os.path.join(os.path.dirname(__file__), '..', 'data')
 LEGIT_FILE = os.path.join(DATA_DIR, 'legit_domains.txt')
 
-# Load legit domains into memory
+# Load legit domains into memory in a list
 with open(LEGIT_FILE, 'r', encoding='utf-8') as f:
     legit_domains = [line.strip().lower() for line in f if line.strip()]
 
@@ -63,27 +66,41 @@ def check():
                               suggestion=None)
     
     best_match, lev_distance, jac_score = get_best_match(clean_input, legit_domains)
+    ssl_info = fetch_ssl_info(clean_input)
+    whois_info = fetch_whois_info(clean_input)
+    risk_score, reasons = score_domain_risk(ssl_info, whois_info)
+
+    is_suspicious = False
     
-    if best_match:
+    if best_match or risk_score >= 2:
         # Log the phishing attempt to Neo4j
         try:
-            add_phishing_match(clean_input, best_match, lev_distance, jac_score)
+            is_suspicious = True
+            add_phishing_match(clean_input, best_match, lev_distance, jac_score, ssl_info, whois_info, risk_score, reasons)
             print(f"Logged phishing attempt: {clean_input} -> {best_match}")
         except Exception as e:
             print(f"Error logging to Neo4j: {e}")
         
         return render_template('result.html',
-                              flagged=True,
-                              domain=clean_input,
-                              safe=False,
-                              suggestion=best_match)
+                           flagged=is_suspicious,
+                           domain=clean_input,
+                           safe=not is_suspicious,
+                           suggestion=best_match,
+                           ssl=ssl_info,
+                           whois=whois_info,
+                           risk_score=risk_score,
+                           reasons=reasons)
     else:
         # No match found - could be legitimate unknown domain or suspicious
         return render_template('result.html',
-                              flagged=False,
-                              domain=clean_input,
-                              safe=False,
-                              suggestion=None)
+                            flagged=is_suspicious,
+                            domain=clean_input,
+                            safe= is_suspicious,
+                            suggestion=None, 
+                            ssl=ssl_info,
+                            whois=whois_info,
+                            risk_score=risk_score,
+                            reasons=reasons)
 
 @app.route('/analytics')
 def analytics():
