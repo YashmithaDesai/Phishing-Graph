@@ -284,6 +284,19 @@
         </div>
       {% endif %}
 
+      {% if dns %}
+        <div style="text-align:left; margin-top:20px;">
+          <h3>🌐 DNS Info</h3>
+          <ul>
+            <li><strong>A Record Present:</strong> {{ dns.has_a_record }}</li>
+            <li><strong>MX Record Present:</strong> {{ dns.has_mx_record }}</li>
+            <li><strong>NS Record Present:</strong> {{ dns.has_ns_record }}</li>
+          </ul>
+        </div>
+      {% endif %}
+
+
+
       <p>This domain is found in our list of verified legitimate websites. You can proceed with confidence.</p>
 
     {% elif flagged and suggestion %}
@@ -331,6 +344,17 @@
               <li><strong>{{ k }}:</strong> {{ v }}</li>
             {% endfor %}
           </ul>
+        </div>
+      {% endif %}
+
+      {% if dns %}
+        <div style="text-align:left; margin-top:20px;">
+          <h3>🌐 DNS Info</h3>
+            <ul>
+              <li><strong>A Record Present:</strong> {{ '✅' if dns.has_a_record else '❌' }}</li>
+              <li><strong>MX Record Present:</strong> {{ '✅' if dns.has_mx_record else '❌' }}</li>
+              <li><strong>NS Record Present:</strong> {{ '✅' if dns.has_ns_record else '❌' }}</li>
+            </ul>
         </div>
       {% endif %}
 

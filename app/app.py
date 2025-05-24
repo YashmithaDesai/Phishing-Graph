@@ -5,7 +5,7 @@ from flask import Flask, request, render_template, redirect
 from Levenshtein import distance as levenshtein_distance
 from neo4j_utils import add_phishing_match, driver, get_phishing_history, get_phishing_statistics, test_connection
 from flask import jsonify
-from utils import fetch_ssl_info, fetch_whois_info, score_domain_risk
+from utils import fetch_ssl_info, fetch_whois_info, fetch_dns_info, score_domain_risk
 from neo4j_utils import add_domain_metadata  
 
 
@@ -68,7 +68,9 @@ def check():
     best_match, lev_distance, jac_score = get_best_match(clean_input, legit_domains)
     ssl_info = fetch_ssl_info(clean_input)
     whois_info = fetch_whois_info(clean_input)
-    risk_score, reasons = score_domain_risk(ssl_info, whois_info)
+    dns_info = fetch_dns_info(clean_input)
+    risk_score, reasons = score_domain_risk(ssl_info, whois_info, dns_info)
+
 
     is_suspicious = False
     
@@ -82,14 +84,16 @@ def check():
             print(f"Error logging to Neo4j: {e}")
         
         return render_template('result.html',
-                           flagged=is_suspicious,
-                           domain=clean_input,
-                           safe=not is_suspicious,
-                           suggestion=best_match,
-                           ssl=ssl_info,
-                           whois=whois_info,
-                           risk_score=risk_score,
-                           reasons=reasons)
+                       flagged=is_suspicious,
+                       domain=clean_input,
+                       safe=not is_suspicious,
+                       suggestion=best_match,
+                       ssl=ssl_info,
+                       whois=whois_info,
+                       dns=dns_info,
+                       risk_score=risk_score,
+                       reasons=reasons)
+
     else:
         # No match found - could be legitimate unknown domain or suspicious
         return render_template('result.html',

@@ -1,6 +1,35 @@
 import ssl, socket
 import whois
 from datetime import datetime
+import dns.resolver
+
+def fetch_dns_info(domain):
+    dns_info = {"has_a_record": False, "has_mx_record": False, "has_ns_record": False}
+    try:
+        # Check for A record
+        a_records = dns.resolver.resolve(domain, 'A')
+        if a_records:
+            dns_info["has_a_record"] = True
+    except Exception:
+        pass
+
+    try:
+        # Check for MX record
+        mx_records = dns.resolver.resolve(domain, 'MX')
+        if mx_records:
+            dns_info["has_mx_record"] = True
+    except Exception:
+        pass
+
+    try:
+        # Check for NS record
+        ns_records = dns.resolver.resolve(domain, 'NS')
+        if ns_records:
+            dns_info["has_ns_record"] = True
+    except Exception:
+        pass
+
+    return dns_info
 
 def fetch_ssl_info(domain):
     ssl_info = {"issuer": None, "expires": None}
@@ -25,7 +54,7 @@ def fetch_whois_info(domain):
         pass
     return whois_info
 
-def score_domain_risk(ssl_info, whois_info):
+def score_domain_risk(ssl_info, whois_info, dns_info=None):
     score = 0
     reasons = []
 
@@ -57,5 +86,17 @@ def score_domain_risk(ssl_info, whois_info):
     if not whois_info.get("registrar"):
         score += 1
         reasons.append("Missing registrar in WHOIS")
+
+    # DNS Checks
+    if dns_info:
+        if not dns_info.get("has_a_record"):
+            score += 1
+            reasons.append("Missing A record")
+        if not dns_info.get("has_mx_record"):
+            score += 1
+            reasons.append("Missing MX record")
+        if not dns_info.get("has_ns_record"):
+            score += 1
+            reasons.append("Missing NS record")
 
     return score, reasons
