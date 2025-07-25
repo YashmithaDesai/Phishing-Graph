@@ -4,10 +4,10 @@ import csv
 import math
 from flask import Flask, request, render_template, redirect
 from Levenshtein import distance as levenshtein_distance
-from neo4j_utils import add_phishing_match, driver, get_phishing_history, get_phishing_statistics, test_connection
+from app.neo4j_utils import add_phishing_match, driver, get_phishing_history, get_phishing_statistics, test_connection
 from flask import jsonify
 from utils import fetch_ssl_info, fetch_whois_info, fetch_dns_info, score_domain_risk, check_redirect_chain
-from neo4j_utils import add_domain_metadata , get_network_enhanced_risk_score
+from app.neo4j_utils import add_domain_metadata , get_network_enhanced_risk_score
 
 
 app = Flask(__name__)
