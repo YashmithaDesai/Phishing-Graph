@@ -2,12 +2,26 @@
 import os
 import csv
 import math
-from flask import Flask, request, render_template, redirect
+from flask import Flask, request, render_template, redirect, jsonify
 from Levenshtein import distance as levenshtein_distance
-from app.neo4j_utils import add_phishing_match, driver, get_phishing_history, get_phishing_statistics, test_connection
-from flask import jsonify
-from utils import fetch_ssl_info, fetch_whois_info, fetch_dns_info, score_domain_risk, check_redirect_chain
-from app.neo4j_utils import add_domain_metadata , get_network_enhanced_risk_score
+
+# Import from app submodules using absolute imports
+from app.neo4j_utils import (
+    add_phishing_match,
+    driver,
+    get_phishing_history,
+    get_phishing_statistics,
+    test_connection,
+    add_domain_metadata,
+    get_network_enhanced_risk_score
+)
+from app.utils import (
+    fetch_ssl_info,
+    fetch_whois_info,
+    fetch_dns_info,
+    score_domain_risk,
+    check_redirect_chain
+)
 
 
 app = Flask(__name__)
